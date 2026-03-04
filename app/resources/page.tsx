@@ -1,204 +1,530 @@
+// Path: app/resources/page.tsx
+
 'use client';
 
-import React, { useState } from 'react';
-import { BookOpen, Video, FileText, Download, ExternalLink, Search, Play } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import Link from 'next/link';
+import {
+	Search,
+	FileText,
+	Video,
+	ExternalLink,
+	BookOpen,
+	Download,
+	Play,
+	ArrowLeft,
+	ChevronLeft,
+	ChevronRight,
+	Filter,
+	X,
+} from 'lucide-react';
 
+// ===== PLACEHOLDER DATA (replaced by Sanity fetch later) =====
+const placeholderResources = [
+	{
+		_id: '1',
+		title: 'Cultural Assessment Framework',
+		slug: { current: 'cultural-assessment-framework' },
+		description:
+			'15-minute walkthrough of the cultural assessment process used in forensic evaluations.',
+		category: 'cultural-competence',
+		resourceType: 'video' as const,
+		videoUrl: 'https://youtube.com/example',
+		publishDate: '2026-01-15',
+		isFeatured: true,
+	},
+	{
+		_id: '2',
+		title: 'Clinical Documentation Checklist',
+		slug: { current: 'clinical-documentation-checklist' },
+		description:
+			'Essential elements for progress notes, assessments, and treatment plans.',
+		category: 'clinical-supervision',
+		resourceType: 'pdf' as const,
+		file: { asset: { url: '/placeholder.pdf' } },
+		publishDate: '2026-01-10',
+		isFeatured: true,
+	},
+	{
+		_id: '3',
+		title: 'Supervision: What to Expect',
+		slug: { current: 'supervision-what-to-expect' },
+		description:
+			'How supervision works at SCTC — structure, expectations, and growth areas.',
+		category: 'clinical-supervision',
+		resourceType: 'article' as const,
+		publishDate: '2026-02-01',
+		isFeatured: false,
+	},
+	{
+		_id: '4',
+		title: 'APA Ethical Guidelines for Forensic Practice',
+		slug: { current: 'apa-ethical-guidelines' },
+		description:
+			"Link to APA's official guidelines for forensic psychology practitioners.",
+		category: 'forensic-evaluations',
+		resourceType: 'link' as const,
+		externalUrl: 'https://apa.org/example',
+		publishDate: '2025-11-20',
+		isFeatured: false,
+	},
+	{
+		_id: '5',
+		title: 'Writing Competency Evaluations',
+		slug: { current: 'writing-competency-evaluations' },
+		description:
+			'Step-by-step guide to writing clear, defensible competency evaluation reports.',
+		category: 'forensic-evaluations',
+		resourceType: 'pdf' as const,
+		file: { asset: { url: '/placeholder.pdf' } },
+		publishDate: '2026-02-10',
+		isFeatured: true,
+	},
+	{
+		_id: '6',
+		title: 'Building Rapport with Diverse Populations',
+		slug: { current: 'building-rapport-diverse' },
+		description:
+			'Video lecture on evidence-based approaches to building therapeutic relationships across cultures.',
+		category: 'cultural-competence',
+		resourceType: 'video' as const,
+		videoUrl: 'https://youtube.com/example2',
+		publishDate: '2026-02-15',
+		isFeatured: false,
+	},
+	{
+		_id: '7',
+		title: 'Internship Application Prep Guide',
+		slug: { current: 'internship-application-prep' },
+		description:
+			'Everything you need to know about preparing a competitive internship application.',
+		category: 'career-advice',
+		resourceType: 'pdf' as const,
+		file: { asset: { url: '/placeholder.pdf' } },
+		publishDate: '2026-03-01',
+		isFeatured: false,
+	},
+	{
+		_id: '8',
+		title: 'APPIC Match Statistics',
+		slug: { current: 'appic-match-statistics' },
+		description:
+			'Latest APPIC match data and analysis — what the numbers mean for your application strategy.',
+		category: 'career-advice',
+		resourceType: 'link' as const,
+		externalUrl: 'https://appic.org/example',
+		publishDate: '2026-01-25',
+		isFeatured: false,
+	},
+	{
+		_id: '9',
+		title: 'Progress Note Templates',
+		slug: { current: 'progress-note-templates' },
+		description:
+			'Downloadable templates for clinical progress notes in various settings.',
+		category: 'clinical-supervision',
+		resourceType: 'pdf' as const,
+		file: { asset: { url: '/placeholder.pdf' } },
+		publishDate: '2026-02-20',
+		isFeatured: false,
+	},
+	{
+		_id: '10',
+		title: 'Cultural Humility in Clinical Practice',
+		slug: { current: 'cultural-humility' },
+		description:
+			'A foundational article on moving from cultural competence to cultural humility.',
+		category: 'cultural-competence',
+		resourceType: 'article' as const,
+		publishDate: '2025-12-15',
+		isFeatured: false,
+	},
+];
+
+// ===== CONSTANTS =====
+const ITEMS_PER_PAGE = 9;
+
+const categories = [
+	{ value: '', label: 'All Categories' },
+	{ value: 'forensic-evaluations', label: 'Forensic Evaluations' },
+	{ value: 'cultural-competence', label: 'Cultural Competence' },
+	{ value: 'career-advice', label: 'Career Advice' },
+	{ value: 'clinical-supervision', label: 'Clinical Supervision' },
+	{ value: 'research-readings', label: 'Research & Readings' },
+];
+
+const resourceTypes = [
+	{ value: '', label: 'All Types' },
+	{ value: 'pdf', label: 'PDF / Document', icon: FileText },
+	{ value: 'video', label: 'Video', icon: Video },
+	{ value: 'link', label: 'External Link', icon: ExternalLink },
+	{ value: 'article', label: 'Article', icon: BookOpen },
+];
+
+const typeConfig = {
+	pdf: {
+		icon: FileText,
+		label: 'PDF',
+		actionLabel: 'Download',
+		actionIcon: Download,
+		color: 'text-red-600 bg-red-50',
+	},
+	video: {
+		icon: Video,
+		label: 'Video',
+		actionLabel: 'Watch',
+		actionIcon: Play,
+		color: 'text-blue-600 bg-blue-50',
+	},
+	link: {
+		icon: ExternalLink,
+		label: 'Link',
+		actionLabel: 'Visit',
+		actionIcon: ExternalLink,
+		color: 'text-green-600 bg-green-50',
+	},
+	article: {
+		icon: BookOpen,
+		label: 'Article',
+		actionLabel: 'Read',
+		actionIcon: BookOpen,
+		color: 'text-purple-600 bg-purple-50',
+	},
+};
+
+// ===== TYPES =====
+interface Resource {
+	_id: string;
+	title: string;
+	slug: { current: string };
+	description: string;
+	category: string;
+	resourceType: 'pdf' | 'video' | 'link' | 'article';
+	file?: { asset?: { url?: string } };
+	videoUrl?: string;
+	externalUrl?: string;
+	publishDate?: string;
+	isFeatured?: boolean;
+}
+
+function getResourceUrl(resource: Resource): string | null {
+	switch (resource.resourceType) {
+		case 'pdf':
+			return resource.file?.asset?.url || null;
+		case 'video':
+			return resource.videoUrl || null;
+		case 'link':
+			return resource.externalUrl || null;
+		case 'article':
+			return `/resources/${resource.slug.current}`;
+		default:
+			return null;
+	}
+}
+
+// ===== COMPONENT =====
 export default function ResourcesPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+	const [searchQuery, setSearchQuery] = useState('');
+	const [selectedCategory, setSelectedCategory] = useState('');
+	const [selectedType, setSelectedType] = useState('');
+	const [currentPage, setCurrentPage] = useState(1);
+	const [showFilters, setShowFilters] = useState(false);
 
-  const categories = [
-    { id: 'all', label: 'All Resources' },
-    { id: 'clinical-skills', label: 'Clinical Skills' },
-    { id: 'cultural-competence', label: 'Cultural Competence' },
-    { id: 'documentation', label: 'Documentation' },
-    { id: 'career', label: 'Career Development' },
-  ];
+	// TODO: Replace with Sanity fetch — const resources = await getResources()
+	const resources: Resource[] = placeholderResources;
 
-  const resources = [
-    { type: 'video', icon: Video, title: 'Cultural Assessment Framework', description: '15-minute walkthrough of the assessment process I use with every client. Covers key questions, common pitfalls, and how to document cultural factors effectively.', category: 'cultural-competence', meta: '15 min', featured: true },
-    { type: 'pdf', icon: FileText, title: 'Clinical Documentation Checklist', description: 'Essential elements for progress notes, treatment plans, and assessment reports. What to include, what to skip, and how to write efficiently.', category: 'documentation', meta: '8 pages', featured: true },
-    { type: 'article', icon: BookOpen, title: 'Supervision: What to Expect', description: 'How supervision works at SCTC—structure, expectations, feedback process, and how we support your growth as a clinician.', category: 'clinical-skills', meta: '6 min read', featured: false },
-    { type: 'video', icon: Video, title: 'Writing Culturally Responsive Reports', description: 'How to integrate cultural formulation into your clinical documentation without it feeling like an add-on or checkbox exercise.', category: 'cultural-competence', meta: '22 min', featured: false },
-    { type: 'pdf', icon: FileText, title: 'APPIC Application Timeline', description: 'Month-by-month guide to the internship application process. When to reach out to sites, what to prepare, and how to stay organized.', category: 'career', meta: '6 pages', featured: false },
-    { type: 'article', icon: BookOpen, title: 'Common Assessment Mistakes', description: 'The errors I see most often in student reports and how to avoid them. From diagnostic reasoning to cultural blind spots.', category: 'clinical-skills', meta: '8 min read', featured: false },
-    { type: 'external', icon: ExternalLink, title: 'APA Multicultural Guidelines', description: 'Official guidelines for integrating cultural considerations into psychological practice. Essential reading for all trainees.', category: 'cultural-competence', meta: 'External link', featured: false },
-    { type: 'pdf', icon: FileText, title: 'Interview Preparation Guide', description: 'What training sites are really asking when they interview you—and how to prepare answers that show clinical maturity.', category: 'career', meta: '10 pages', featured: false },
-    { type: 'video', icon: Video, title: 'Clinical Formulation Workshop', description: 'How to think through a case from assessment data to treatment recommendations. Includes two worked examples.', category: 'clinical-skills', meta: '28 min', featured: false },
-  ];
+	// Filter + search
+	const filteredResources = useMemo(() => {
+		return resources.filter((r) => {
+			const matchesSearch =
+				!searchQuery ||
+				r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				r.description.toLowerCase().includes(searchQuery.toLowerCase());
+			const matchesCategory =
+				!selectedCategory || r.category === selectedCategory;
+			const matchesType = !selectedType || r.resourceType === selectedType;
+			return matchesSearch && matchesCategory && matchesType;
+		});
+	}, [resources, searchQuery, selectedCategory, selectedType]);
 
-  const filtered = resources.filter(r => {
-    const matchCat = selectedCategory === 'all' || r.category === selectedCategory;
-    const matchSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        r.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCat && matchSearch;
-  });
+	// Pagination
+	const totalPages = Math.ceil(filteredResources.length / ITEMS_PER_PAGE);
+	const paginatedResources = filteredResources.slice(
+		(currentPage - 1) * ITEMS_PER_PAGE,
+		currentPage * ITEMS_PER_PAGE,
+	);
 
-  const featured = resources.filter(r => r.featured);
+	// Reset page when filters change
+	const updateFilter = (
+		setter: React.Dispatch<React.SetStateAction<string>>,
+		value: string,
+	) => {
+		setter(value);
+		setCurrentPage(1);
+	};
 
-  return (
-    <div className="min-h-screen bg-[#f5f0e8]">
+	const activeFilterCount = [selectedCategory, selectedType].filter(
+		Boolean,
+	).length;
 
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full bg-[#f5f0e8]/95 backdrop-blur-md z-50 border-b border-[#8b7355]/20">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-[#e6b84d] rounded-lg flex items-center justify-center">
-              <span className="text-[#2d2d2d] font-bold">SC</span>
-            </div>
-            <span className="text-[#2d2d2d] font-semibold">Training Resources</span>
-          </a>
-          <div className="hidden md:flex items-center space-x-8">
-            <a href="/#field-notes" className="text-[#2d2d2d] hover:text-[#e6b84d] transition-colors">Field Notes</a>
-            <a href="/resources" className="text-[#e6b84d] font-medium">Resources</a>
-            <a href="/#about" className="text-[#2d2d2d] hover:text-[#e6b84d] transition-colors">About</a>
-            <a href="/#contact" className="text-[#2d2d2d] hover:text-[#e6b84d] transition-colors">Contact</a>
-          </div>
-        </div>
-      </nav>
+	return (
+		<div className="min-h-screen bg-warm-cream">
+			{/* Header */}
+			<div className="bg-charcoal-gray pt-28 pb-16 px-6">
+				<div className="max-w-7xl mx-auto">
+					<Link
+						href="/"
+						className="inline-flex items-center gap-2 text-warm-cream/60 hover:text-golden-yellow transition-colors mb-8 text-sm"
+					>
+						<ArrowLeft className="w-4 h-4" />
+						Back to Home
+					</Link>
+					<h1 className="text-4xl md:text-5xl font-bold text-warm-cream mb-4">
+						Training Resources
+					</h1>
+					<p className="text-warm-cream/80 text-lg max-w-2xl">
+						Curated tools, guides, and materials for developing clinical
+						competence. Download documents, watch videos, and explore external
+						resources.
+					</p>
+				</div>
+			</div>
 
-      {/* Hero */}
-      <section className="pt-32 pb-16 px-6 bg-[#3d3d3d]">
-        <div className="max-w-7xl mx-auto">
-          <div className="max-w-3xl animate-fade-in-up">
-            <h1 className="text-5xl lg:text-6xl font-bold text-[#f5f0e8] mb-6 leading-tight">
-              Training Resources
-            </h1>
-            <p className="text-xl text-[#f5f0e8]/80 leading-relaxed">
-              Curated tools, frameworks, and guides for developing clinical competence. From assessment basics to cultural formulation to career navigation.
-            </p>
-          </div>
-        </div>
-      </section>
+			{/* Search + Filters */}
+			<div className="sticky top-0 z-40 bg-warm-cream/95 backdrop-blur-md border-b border-warm-taupe/15 shadow-sm">
+				<div className="max-w-7xl mx-auto px-6 py-4">
+					<div className="flex flex-col md:flex-row gap-4">
+						{/* Search */}
+						<div className="relative flex-1">
+							<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-warm-taupe" />
+							<input
+								type="text"
+								placeholder="Search resources..."
+								value={searchQuery}
+								onChange={(e) => updateFilter(setSearchQuery, e.target.value)}
+								className="w-full pl-12 pr-4 py-3 bg-white border-2 border-warm-taupe/20 rounded-xl focus:border-golden-yellow focus:outline-none focus:ring-2 focus:ring-golden-yellow/20 transition-all text-rich-black placeholder:text-warm-taupe/60"
+							/>
+							{searchQuery && (
+								<button
+									onClick={() => updateFilter(setSearchQuery, '')}
+									className="absolute right-4 top-1/2 -translate-y-1/2 text-warm-taupe hover:text-rich-black transition-colors"
+								>
+									<X className="w-4 h-4" />
+								</button>
+							)}
+						</div>
 
-      {/* Search & Filter */}
-      <section className="py-6 px-6 bg-white border-b border-[#8b7355]/20 sticky top-16 z-40">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8b7355]" />
-            <input
-              type="text"
-              placeholder="Search resources..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border-2 border-[#8b7355]/30 rounded-lg focus:border-[#e6b84d] focus:outline-none focus:ring-2 focus:ring-[#e6b84d]/20 transition-all"
-            />
-          </div>
-          <div className="flex gap-2 overflow-x-auto">
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-3 rounded-lg font-medium whitespace-nowrap transition-all ${
-                  selectedCategory === cat.id
-                    ? 'bg-[#e6b84d] text-[#2d2d2d]'
-                    : 'bg-[#f5f0e8] text-[#3d3d3d] hover:bg-[#8b7355]/10'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+						{/* Filter toggle (mobile) */}
+						<button
+							onClick={() => setShowFilters(!showFilters)}
+							className="md:hidden flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-warm-taupe/20 rounded-xl text-rich-black font-medium"
+						>
+							<Filter className="w-5 h-5" />
+							Filters
+							{activeFilterCount > 0 && (
+								<span className="ml-1 bg-golden-yellow text-rich-black text-xs font-bold px-2 py-0.5 rounded-full">
+									{activeFilterCount}
+								</span>
+							)}
+						</button>
 
-      {/* Featured Resources */}
-      <section className="py-16 px-6">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-[#2d2d2d] mb-8">Featured Resources</h2>
-          <div className="grid md:grid-cols-2 gap-8 mb-16">
-            {featured.map((r, i) => (
-              <div key={i} className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group transform hover:-translate-y-2">
-                <div className="h-3 bg-gradient-to-r from-[#e6b84d] to-[#c99a3d]" />
-                <div className="p-8">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-[#e6b84d]/20 rounded-lg flex items-center justify-center">
-                      <r.icon className="w-6 h-6 text-[#e6b84d]" />
-                    </div>
-                    <span className="text-xs bg-[#e6b84d]/20 text-[#c99a3d] px-3 py-1 rounded-full font-medium uppercase">Featured</span>
-                  </div>
-                  <h3 className="text-2xl font-bold text-[#2d2d2d] mb-3 group-hover:text-[#e6b84d] transition-colors">{r.title}</h3>
-                  <p className="text-[#3d3d3d] leading-relaxed mb-6">{r.description}</p>
-                  <div className="flex items-center justify-between pt-6 border-t border-[#8b7355]/10">
-                    <span className="text-sm text-[#8b7355]">{r.meta}</span>
-                    <button className="flex items-center space-x-2 bg-[#e6b84d] hover:bg-[#c99a3d] text-[#2d2d2d] px-6 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105">
-                      {r.type === 'video'
-                        ? <><Play className="w-4 h-4" /><span>Watch</span></>
-                        : <><Download className="w-4 h-4" /><span>Download</span></>
-                      }
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+						{/* Dropdowns (always visible on desktop, toggleable on mobile) */}
+						<div
+							className={`flex gap-3 ${showFilters ? 'flex' : 'hidden md:flex'}`}
+						>
+							<select
+								value={selectedCategory}
+								onChange={(e) =>
+									updateFilter(setSelectedCategory, e.target.value)
+								}
+								className="px-4 py-3 bg-white border-2 border-warm-taupe/20 rounded-xl focus:border-golden-yellow focus:outline-none text-rich-black text-sm min-w-[180px]"
+							>
+								{categories.map((c) => (
+									<option key={c.value} value={c.value}>
+										{c.label}
+									</option>
+								))}
+							</select>
 
-          {/* All Resources */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-3xl font-bold text-[#2d2d2d]">All Resources</h2>
-            <p className="text-[#8b7355]">{filtered.length} {filtered.length === 1 ? 'resource' : 'resources'}</p>
-          </div>
+							<select
+								value={selectedType}
+								onChange={(e) => updateFilter(setSelectedType, e.target.value)}
+								className="px-4 py-3 bg-white border-2 border-warm-taupe/20 rounded-xl focus:border-golden-yellow focus:outline-none text-rich-black text-sm min-w-[160px]"
+							>
+								{resourceTypes.map((t) => (
+									<option key={t.value} value={t.value}>
+										{t.label}
+									</option>
+								))}
+							</select>
+						</div>
+					</div>
 
-          {filtered.length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-[#3d3d3d] text-lg">No resources found. Try adjusting your search or filters.</p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-3 gap-6">
-              {filtered.map((r, i) => (
-                <div key={i} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 group transform hover:-translate-y-1 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 bg-[#e6b84d]/20 rounded-lg flex items-center justify-center">
-                      <r.icon className="w-5 h-5 text-[#e6b84d]" />
-                    </div>
-                    <span className="text-xs bg-[#f5f0e8] text-[#8b7355] px-3 py-1 rounded-full uppercase">{r.type}</span>
-                  </div>
-                  <h4 className="text-lg font-bold text-[#2d2d2d] mb-2 group-hover:text-[#e6b84d] transition-colors">{r.title}</h4>
-                  <p className="text-[#3d3d3d] text-sm leading-relaxed mb-4 line-clamp-3">{r.description}</p>
-                  <div className="flex items-center justify-between pt-4 border-t border-[#8b7355]/10">
-                    <span className="text-xs text-[#8b7355]">{r.meta}</span>
-                    <button className="text-[#e6b84d] hover:text-[#c99a3d] font-medium text-sm flex items-center space-x-1 transition-colors">
-                      <span>Access</span>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+					{/* Active filters + result count */}
+					<div className="flex items-center justify-between mt-3">
+						<p className="text-warm-taupe text-sm">
+							{filteredResources.length} resource
+							{filteredResources.length !== 1 ? 's' : ''} found
+						</p>
+						{activeFilterCount > 0 && (
+							<button
+								onClick={() => {
+									setSelectedCategory('');
+									setSelectedType('');
+									setCurrentPage(1);
+								}}
+								className="text-golden-yellow hover:text-deep-gold text-sm font-medium transition-colors"
+							>
+								Clear filters
+							</button>
+						)}
+					</div>
+				</div>
+			</div>
 
-      {/* Subscribe CTA */}
-      <section className="py-20 px-6 bg-[#3d3d3d]">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-block bg-[#e6b84d]/20 text-[#e6b84d] px-4 py-2 rounded-full text-sm font-bold mb-6">
-            NEW RESOURCES MONTHLY
-          </div>
-          <h3 className="text-4xl font-bold text-[#f5f0e8] mb-4">Get Updates in Field Notes</h3>
-          <p className="text-[#f5f0e8]/80 text-lg mb-8">
-            New resources, frameworks, and guides delivered monthly. Plus exclusive content for subscribers.
-          </p>
-          <a
-            href="/#field-notes"
-            className="inline-flex items-center space-x-2 bg-[#e6b84d] hover:bg-[#c99a3d] text-[#2d2d2d] px-8 py-4 rounded-lg font-bold transition-all duration-300 transform hover:scale-105"
-          >
-            <span>Subscribe to Field Notes</span>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
-        </div>
-      </section>
+			{/* Resources Grid */}
+			<div className="max-w-7xl mx-auto px-6 py-12">
+				{paginatedResources.length > 0 ? (
+					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+						{paginatedResources.map((resource) => {
+							const config = typeConfig[resource.resourceType];
+							const ActionIcon = config.actionIcon;
+							const url = getResourceUrl(resource);
+							const categoryLabel =
+								categories.find((c) => c.value === resource.category)?.label ||
+								resource.category;
 
-      {/* Footer */}
-      <footer className="bg-[#2d2d2d] py-12 px-6">
-        <div className="max-w-7xl mx-auto text-center">
-          <p className="text-[#f5f0e8]/60 text-sm">© 2026 South Central Training Consortium. All rights reserved.</p>
-        </div>
-      </footer>
-    </div>
-  );
+							return (
+								<div
+									key={resource._id}
+									className="bg-white rounded-2xl shadow-sm hover:shadow-xl border border-warm-taupe/10 hover:border-golden-yellow/30 transition-all duration-300 group hover:-translate-y-1 flex flex-col"
+								>
+									<div className="p-7 flex flex-col flex-1">
+										{/* Type + Category badges */}
+										<div className="flex items-center gap-2 mb-4">
+											<span
+												className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full ${config.color}`}
+											>
+												<config.icon className="w-3 h-3" />
+												{config.label}
+											</span>
+											<span className="text-xs text-warm-taupe bg-warm-cream px-3 py-1 rounded-full">
+												{categoryLabel}
+											</span>
+										</div>
+
+										{/* Title */}
+										<h3 className="text-lg font-bold text-rich-black mb-2 group-hover:text-golden-yellow transition-colors leading-snug">
+											{resource.title}
+										</h3>
+
+										{/* Description */}
+										<p className="text-charcoal-gray/80 text-sm leading-relaxed mb-6 flex-1">
+											{resource.description}
+										</p>
+
+										{/* Date */}
+										{resource.publishDate && (
+											<p className="text-warm-taupe text-xs mb-4">
+												{new Date(resource.publishDate).toLocaleDateString(
+													'en-US',
+													{
+														month: 'long',
+														day: 'numeric',
+														year: 'numeric',
+													},
+												)}
+											</p>
+										)}
+
+										{/* Action button */}
+										{url && (
+											<a
+												href={url}
+												target={
+													resource.resourceType === 'link'
+														? '_blank'
+														: undefined
+												}
+												rel={
+													resource.resourceType === 'link'
+														? 'noopener noreferrer'
+														: undefined
+												}
+												download={
+													resource.resourceType === 'pdf' ? true : undefined
+												}
+												className="flex items-center justify-center gap-2 w-full bg-golden-yellow hover:bg-deep-gold text-rich-black font-semibold py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
+											>
+												<ActionIcon className="w-4 h-4" />
+												{config.actionLabel}
+											</a>
+										)}
+									</div>
+								</div>
+							);
+						})}
+					</div>
+				) : (
+					<div className="text-center py-20">
+						<div className="w-16 h-16 bg-warm-taupe/10 rounded-full mx-auto mb-4 flex items-center justify-center">
+							<Search className="w-8 h-8 text-warm-taupe/50" />
+						</div>
+						<h3 className="text-xl font-bold text-rich-black mb-2">
+							No resources found
+						</h3>
+						<p className="text-warm-taupe mb-6">
+							Try adjusting your search or filters.
+						</p>
+						<button
+							onClick={() => {
+								setSearchQuery('');
+								setSelectedCategory('');
+								setSelectedType('');
+								setCurrentPage(1);
+							}}
+							className="text-golden-yellow hover:text-deep-gold font-medium transition-colors"
+						>
+							Clear all filters
+						</button>
+					</div>
+				)}
+
+				{/* Pagination */}
+				{totalPages > 1 && (
+					<div className="flex items-center justify-center gap-2 mt-14">
+						<button
+							onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+							disabled={currentPage === 1}
+							className="flex items-center justify-center w-10 h-10 rounded-xl border border-warm-taupe/20 bg-white hover:bg-golden-yellow hover:border-golden-yellow hover:text-white transition-all disabled:opacity-30 disabled:hover:bg-white disabled:hover:border-warm-taupe/20 disabled:hover:text-rich-black"
+						>
+							<ChevronLeft className="w-5 h-5" />
+						</button>
+
+						{Array.from({ length: totalPages }).map((_, i) => (
+							<button
+								key={i}
+								onClick={() => setCurrentPage(i + 1)}
+								className={`flex items-center justify-center w-10 h-10 rounded-xl font-medium text-sm transition-all ${
+									currentPage === i + 1
+										? 'bg-golden-yellow text-rich-black shadow-sm'
+										: 'border border-warm-taupe/20 bg-white text-charcoal-gray hover:border-golden-yellow/50'
+								}`}
+							>
+								{i + 1}
+							</button>
+						))}
+
+						<button
+							onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+							disabled={currentPage === totalPages}
+							className="flex items-center justify-center w-10 h-10 rounded-xl border border-warm-taupe/20 bg-white hover:bg-golden-yellow hover:border-golden-yellow hover:text-white transition-all disabled:opacity-30 disabled:hover:bg-white disabled:hover:border-warm-taupe/20 disabled:hover:text-rich-black"
+						>
+							<ChevronRight className="w-5 h-5" />
+						</button>
+					</div>
+				)}
+			</div>
+		</div>
+	);
 }
