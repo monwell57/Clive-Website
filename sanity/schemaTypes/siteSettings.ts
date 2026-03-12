@@ -47,6 +47,15 @@ export default defineType({
 			description: 'Professional headshot (at least 800×800px)',
 		}),
 		defineField({
+			name: 'doctorHeroImage',
+			title: 'Hero Card Image',
+			type: 'image',
+			options: { hotspot: true },
+			fields: [{ name: 'alt', type: 'string', title: 'Alt Text' }],
+			description:
+				'Photo for the hero card on the homepage (landscape/portrait works best)',
+		}),
+		defineField({
 			name: 'doctorBio',
 			title: 'Biography',
 			type: 'array',

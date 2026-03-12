@@ -43,6 +43,10 @@ export async function getSiteSettings() {
       siteDescription,
       doctorName,
       doctorTitle,
+      doctorHeroImage {
+  asset-> { _id, url },
+  alt
+},
       doctorHeadshot {
         asset-> { _id, url },
         alt

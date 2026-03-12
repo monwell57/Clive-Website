@@ -117,6 +117,7 @@ interface SiteSettings {
 	doctorName: string;
 	doctorTitle: string;
 	doctorHeadshot: SanityImage | null;
+	doctorHeroImage: SanityImage | null;
 	doctorBio: Array<{
 		_type: string;
 		_key: string;
@@ -417,13 +418,13 @@ export default function HomePageClient({
 					<div className="relative animate-fade-in-up animation-delay-200">
 						<div className="bg-charcoal-gray rounded-2xl shadow-2xl overflow-hidden">
 							<div className="aspect-4/3 relative">
-								{settings.doctorHeadshot?.asset?.url ? (
+								{settings.doctorHeroImage?.asset?.url ? (
 									<>
 										<Image
-											src={settings.doctorHeadshot.asset.url}
-											alt={settings.doctorHeadshot.alt || settings.doctorName}
+											src={settings.doctorHeroImage.asset.url}
+											alt={settings.doctorHeroImage.alt || settings.doctorName}
 											fill
-											className="object-cover object-[center_20%]"
+											className="object-cover object-top"
 											priority
 										/>
 										{/* Gradient overlay for text readability */}
