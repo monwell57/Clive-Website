@@ -47,6 +47,10 @@ export async function getSiteSettings() {
         asset-> { _id, url },
         alt
       },
+      doctorHeroImage {
+        asset-> { _id, url },
+        alt
+      },
       doctorBio,
       doctorQuote,
       heroHeadline,
