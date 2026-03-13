@@ -43,10 +43,6 @@ export async function getSiteSettings() {
       siteDescription,
       doctorName,
       doctorTitle,
-      doctorHeroImage {
-  asset-> { _id, url },
-  alt
-},
       doctorHeadshot {
         asset-> { _id, url },
         alt
@@ -135,10 +131,19 @@ export async function getNewsletterIssueBySlug(slug: string) {
       issueNumber,
       publishDate,
       excerpt,
-      body,
+      body[] {
+        ...,
+        _type == "image" => {
+          ...,
+          asset-> { _id, url },
+          alt,
+          caption
+        }
+      },
       category,
       readTimeMinutes,
       videoUrl,
+      isPublished,
       isSubscriberOnly,
       coverImage {
         asset-> { _id, url },
