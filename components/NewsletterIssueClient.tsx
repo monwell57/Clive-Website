@@ -69,6 +69,30 @@ interface NewsletterIssueClientProps {
 	relatedIssues: RelatedIssue[];
 }
 
+// ===== VIDEO URL HELPERS =====
+function getYouTubeEmbedUrl(url: string): string | null {
+	try {
+		const parsed = new URL(url);
+		// Standard: youtube.com/watch?v=ID
+		if (parsed.hostname.includes('youtube.com')) {
+			const id = parsed.searchParams.get('v');
+			if (id) return `https://www.youtube.com/embed/${id}`;
+		}
+		// Short: youtu.be/ID
+		if (parsed.hostname === 'youtu.be') {
+			const id = parsed.pathname.slice(1);
+			if (id) return `https://www.youtube.com/embed/${id}`;
+		}
+		// Already an embed URL
+		if (parsed.hostname.includes('youtube.com') && parsed.pathname.startsWith('/embed/')) {
+			return url;
+		}
+	} catch {
+		return null;
+	}
+	return null;
+}
+
 // ===== CATEGORY LABELS =====
 const categoryLabels: Record<string, string> = {
 	'forensic-evaluations': 'Forensic Evaluations',
@@ -287,31 +311,27 @@ export default function NewsletterIssueClient({
 						</div>
 					)}
 
-					{/* Video embed */}
-					{issue.videoUrl && (
+				{/* Video embed */}
+				{issue.videoUrl && (() => {
+					const embedUrl = getYouTubeEmbedUrl(issue.videoUrl!);
+					if (!embedUrl) return null;
+					return (
 						<div className="mt-12">
 							<h3 className="text-2xl font-bold text-rich-black mb-6">Watch</h3>
 							<div className="bg-charcoal-gray rounded-xl overflow-hidden shadow-2xl">
-								<div className="aspect-video flex items-center justify-center relative group cursor-pointer">
-									<div className="absolute inset-0 bg-linear-to-br from-golden-yellow/10 to-transparent" />
-									<div className="relative z-10 text-center">
-										<div className="w-20 h-20 bg-golden-yellow rounded-full flex items-center justify-center mb-4 mx-auto group-hover:scale-110 transition-transform">
-											<svg
-												className="w-10 h-10 text-rich-black ml-1"
-												fill="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path d="M8 5v14l11-7z" />
-											</svg>
-										</div>
-										<p className="text-warm-cream text-lg font-medium">
-											Watch Video
-										</p>
-									</div>
+								<div className="aspect-video">
+									<iframe
+										src={embedUrl}
+										title="Newsletter video"
+										allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+										allowFullScreen
+										className="w-full h-full"
+									/>
 								</div>
 							</div>
 						</div>
-					)}
+					);
+				})()}
 				</div>
 			</article>
 
