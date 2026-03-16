@@ -2,7 +2,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -14,6 +14,8 @@ import {
 	Lock,
 	ChevronRight,
 	Mail,
+	Link as LinkIcon, // ← add
+	CheckCircle, // ← add
 } from 'lucide-react';
 
 // ===== TYPES =====
@@ -84,7 +86,10 @@ function getYouTubeEmbedUrl(url: string): string | null {
 			if (id) return `https://www.youtube.com/embed/${id}`;
 		}
 		// Already an embed URL
-		if (parsed.hostname.includes('youtube.com') && parsed.pathname.startsWith('/embed/')) {
+		if (
+			parsed.hostname.includes('youtube.com') &&
+			parsed.pathname.startsWith('/embed/')
+		) {
 			return url;
 		}
 	} catch {
@@ -190,6 +195,124 @@ function renderBody(blocks: PortableTextBlock[]) {
 	});
 }
 
+// ===== SHARE BUTTON COMPONENT =====
+function ShareButton({ title, slug }: { title: string; slug: string }) {
+	const [isOpen, setIsOpen] = useState(false);
+	const [copied, setCopied] = useState(false);
+	const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+	const shareUrl =
+		typeof window !== 'undefined'
+			? `${window.location.origin}/newsletter/${slug}`
+			: `/newsletter/${slug}`;
+
+	const encodedUrl = encodeURIComponent(shareUrl);
+	const encodedTitle = encodeURIComponent(title);
+
+	React.useEffect(() => {
+		function handleClickOutside(e: MouseEvent) {
+			if (
+				dropdownRef.current &&
+				!dropdownRef.current.contains(e.target as Node)
+			) {
+				setIsOpen(false);
+			}
+		}
+		if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+		return () => document.removeEventListener('mousedown', handleClickOutside);
+	}, [isOpen]);
+
+	const handleCopyLink = async () => {
+		try {
+			await navigator.clipboard.writeText(shareUrl);
+		} catch {
+			const textarea = document.createElement('textarea');
+			textarea.value = shareUrl;
+			document.body.appendChild(textarea);
+			textarea.select();
+			document.execCommand('copy');
+			document.body.removeChild(textarea);
+		}
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
+
+	const shareLinks = [
+		{
+			label: copied ? 'Copied!' : 'Copy Link',
+			icon: copied ? (
+				<CheckCircle className="w-4 h-4 text-golden-yellow" />
+			) : (
+				<LinkIcon className="w-4 h-4" />
+			),
+			onClick: handleCopyLink,
+		},
+		{
+			label: 'LinkedIn',
+			icon: (
+				<svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+					<path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+				</svg>
+			),
+			href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+		},
+		{
+			label: 'X (Twitter)',
+			icon: (
+				<svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+					<path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+				</svg>
+			),
+			href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`,
+		},
+		{
+			label: 'Email',
+			icon: <Mail className="w-4 h-4" />,
+			href: `mailto:?subject=${encodedTitle}&body=Check out this article: ${encodedUrl}`,
+		},
+	];
+
+	return (
+		<div className="relative" ref={dropdownRef}>
+			<button
+				onClick={() => setIsOpen(!isOpen)}
+				className={`p-2 rounded-lg transition-colors ${isOpen ? 'bg-golden-yellow/10 text-golden-yellow' : 'hover:bg-warm-taupe/10 text-charcoal-gray'}`}
+				aria-label="Share this article"
+			>
+				<Share2 className="w-5 h-5" />
+			</button>
+			{isOpen && (
+				<div className="absolute right-0 top-12 bg-white rounded-xl shadow-xl border border-warm-taupe/15 py-2 w-48 animate-fade-in-up z-50">
+					{shareLinks.map((item) =>
+						item.onClick ? (
+							<button
+								key={item.label}
+								onClick={item.onClick}
+								className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-rich-black hover:bg-golden-yellow/5 hover:text-golden-yellow transition-colors"
+							>
+								{item.icon}
+								{item.label}
+							</button>
+						) : (
+							<a
+								key={item.label}
+								href={item.href}
+								target="_blank"
+								rel="noopener noreferrer"
+								onClick={() => setIsOpen(false)}
+								className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-rich-black hover:bg-golden-yellow/5 hover:text-golden-yellow transition-colors"
+							>
+								{item.icon}
+								{item.label}
+							</a>
+						),
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
 // ===== COMPONENT =====
 export default function NewsletterIssueClient({
 	issue,
@@ -216,11 +339,12 @@ export default function NewsletterIssueClient({
 						<ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
 						<span className="font-medium">Back to Newsletter</span>
 					</Link>
-					<div className="flex items-center space-x-4">
+					{/* <div className="flex items-center space-x-4">
 						<button className="p-2 hover:bg-warm-taupe/10 rounded-lg transition-colors">
 							<Share2 className="w-5 h-5 text-charcoal-gray" />
 						</button>
-					</div>
+					</div> */}
+					<ShareButton title={issue.title} slug={issue.slug.current} />
 				</div>
 			</nav>
 
@@ -311,27 +435,30 @@ export default function NewsletterIssueClient({
 						</div>
 					)}
 
-				{/* Video embed */}
-				{issue.videoUrl && (() => {
-					const embedUrl = getYouTubeEmbedUrl(issue.videoUrl!);
-					if (!embedUrl) return null;
-					return (
-						<div className="mt-12">
-							<h3 className="text-2xl font-bold text-rich-black mb-6">Watch</h3>
-							<div className="bg-charcoal-gray rounded-xl overflow-hidden shadow-2xl">
-								<div className="aspect-video">
-									<iframe
-										src={embedUrl}
-										title="Newsletter video"
-										allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-										allowFullScreen
-										className="w-full h-full"
-									/>
+					{/* Video embed */}
+					{issue.videoUrl &&
+						(() => {
+							const embedUrl = getYouTubeEmbedUrl(issue.videoUrl!);
+							if (!embedUrl) return null;
+							return (
+								<div className="mt-12">
+									<h3 className="text-2xl font-bold text-rich-black mb-6">
+										Watch
+									</h3>
+									<div className="bg-charcoal-gray rounded-xl overflow-hidden shadow-2xl">
+										<div className="aspect-video">
+											<iframe
+												src={embedUrl}
+												title="Newsletter video"
+												allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+												allowFullScreen
+												className="w-full h-full"
+											/>
+										</div>
+									</div>
 								</div>
-							</div>
-						</div>
-					);
-				})()}
+							);
+						})()}
 				</div>
 			</article>
 

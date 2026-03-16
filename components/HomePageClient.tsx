@@ -1092,6 +1092,9 @@ export default function HomePageClient({
 						<p className="text-warm-cream/60 text-sm">
 							© 2026 {settings.siteTitle}. All rights reserved.
 						</p>
+						<p className="text-warm-cream/60 text-sm">
+							Website created by Greg Peters of GMP Atelier
+						</p>
 					</div>
 				</div>
 			</footer>
