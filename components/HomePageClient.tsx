@@ -814,7 +814,7 @@ export default function HomePageClient({
 			<TestimonialsSection testimonials={testimonials} />
 
 			{/* ── NEWSLETTER PREVIEW (from Sanity) ── */}
-			<section id="newsletter" className="py-20 px-6 bg-warm-cream">
+			<section id="newsletter" className="py-20 px-6 bg-white">
 				<div className="max-w-7xl mx-auto">
 					<div className="flex items-end justify-between mb-12 flex-wrap gap-4">
 						<div>
