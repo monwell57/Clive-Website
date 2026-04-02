@@ -262,10 +262,15 @@ export default function HomePageClient({
 				}));
 				return;
 			}
-			if (file.type !== 'application/pdf') {
+			const allowedTypes = [
+				'application/pdf',
+				'application/msword',
+				'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+			];
+			if (!allowedTypes.includes(file.type)) {
 				setFileErrors((prev) => ({
 					...prev,
-					[field]: 'Please upload a PDF file',
+					[field]: 'Please upload a PDF or Word document',
 				}));
 				return;
 			}
@@ -342,18 +347,18 @@ export default function HomePageClient({
 		{
 			field: 'coverLetter',
 			label: 'Cover Letter',
-			description: 'PDF, max 10MB',
+			description: 'PDF or Word, max 10MB',
 		},
-		{ field: 'resume', label: 'Resume / CV', description: 'PDF, max 10MB' },
+		{ field: 'resume', label: 'Resume / CV', description: 'PDF or Word, max 10MB' },
 		{
 			field: 'application',
 			label: 'Completed Application',
-			description: 'PDF, max 10MB',
+			description: 'PDF or Word, max 10MB',
 		},
 		{
 			field: 'availabilityForm',
 			label: 'Completed Availability Form',
-			description: 'PDF, max 10MB',
+			description: 'PDF or Word, max 10MB',
 		},
 	];
 
@@ -557,8 +562,8 @@ export default function HomePageClient({
 							Submit Your Application
 						</h3>
 						<p className="text-warm-cream/80 text-lg max-w-2xl mx-auto">
-							Upload all four required documents to complete your application.
-							PDF format only, 10MB max per file.
+						Upload all four required documents to complete your application.
+						PDF or Word format, 10MB max per file.
 						</p>
 					</div>
 
@@ -627,19 +632,30 @@ export default function HomePageClient({
 										<div
 											className={`border-2 border-dashed rounded-xl p-5 transition-all duration-300 ${uploads[field] ? 'border-golden-yellow bg-golden-yellow/5' : fileErrors[field] ? 'border-red-400 bg-red-50' : 'border-warm-taupe/30 bg-white hover:border-golden-yellow/50 hover:bg-golden-yellow/5'}`}
 										>
-											{uploads[field] ? (
-												<div className="flex items-center justify-between">
-													<div className="flex items-center space-x-3">
-														<CheckCircle className="w-6 h-6 text-golden-yellow shrink-0" />
-														<div>
-															<p className="text-rich-black font-medium text-sm">
-																{uploads[field]!.name}
-															</p>
-															<p className="text-warm-taupe text-xs">
-																{uploads[field]!.size}
-															</p>
-														</div>
+										{uploads[field] ? (
+											<div className="flex items-center justify-between">
+												<div className="flex items-center space-x-3">
+													<CheckCircle className="w-6 h-6 text-golden-yellow shrink-0" />
+													<div>
+														<p className="text-rich-black font-medium text-sm">
+															{uploads[field]!.name}
+														</p>
+														<p className="text-warm-taupe text-xs">
+															{uploads[field]!.size}
+														</p>
 													</div>
+												</div>
+												<div className="flex items-center space-x-2">
+													<button
+														type="button"
+														onClick={() => {
+															const url = URL.createObjectURL(uploads[field]!.file);
+															window.open(url, '_blank');
+														}}
+														className="text-golden-yellow hover:text-deep-gold text-sm font-medium transition-colors"
+													>
+														View
+													</button>
 													<button
 														type="button"
 														onClick={() => removeFile(field)}
@@ -648,6 +664,7 @@ export default function HomePageClient({
 														<X className="w-5 h-5 text-warm-taupe" />
 													</button>
 												</div>
+											</div>
 											) : (
 												<div
 													className="flex items-center justify-between cursor-pointer"
@@ -678,13 +695,13 @@ export default function HomePageClient({
 												<span>{fileErrors[field]}</span>
 											</p>
 										)}
-										<input
-											ref={fileRefs[field]}
-											type="file"
-											accept=".pdf"
-											onChange={handleFileChange(field)}
-											className="hidden"
-										/>
+									<input
+										ref={fileRefs[field]}
+										type="file"
+										accept=".pdf,.doc,.docx"
+										onChange={handleFileChange(field)}
+										className="hidden"
+									/>
 									</div>
 								))}
 							</div>
