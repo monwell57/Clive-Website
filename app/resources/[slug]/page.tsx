@@ -1,95 +1,17 @@
 // Path: app/resources/[slug]/page.tsx
 
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { notFound } from 'next/navigation';
 import { ArrowLeft, Clock, Calendar, BookOpen, Tag } from 'lucide-react';
+import { getResourceBySlug } from '@/lib/sanity';
 
-// ===== PLACEHOLDER DATA (replaced by Sanity fetch later) =====
-// TODO: Replace with — const resource = await getResourceBySlug(params.slug)
-const placeholderArticle = {
-	_id: '3',
-	title: 'Supervision: What to Expect',
-	slug: { current: 'supervision-what-to-expect' },
-	description:
-		'How supervision works at SCTC — structure, expectations, and growth areas.',
-	category: 'clinical-supervision',
-	resourceType: 'article' as const,
-	publishDate: '2026-02-01',
-	articleBody: [
-		{
-			_type: 'block',
-			style: 'h2',
-			children: [{ text: 'What Clinical Supervision Looks Like at SCTC' }],
-		},
-		{
-			_type: 'block',
-			style: 'normal',
-			children: [
-				{
-					text: "Supervision is the backbone of your training experience. At SCTC, we take a developmental approach — meeting you where you are and building from there. Whether you're in your first practicum or preparing for licensure, supervision is tailored to your growth edge.",
-				},
-			],
-		},
-		{
-			_type: 'block',
-			style: 'h2',
-			children: [{ text: 'Structure & Frequency' }],
-		},
-		{
-			_type: 'block',
-			style: 'normal',
-			children: [
-				{
-					text: "You'll receive a minimum of two hours of individual supervision per week, plus one hour of group supervision. Individual sessions focus on your active cases, while group sessions cover broader clinical and ethical topics. This exceeds APPIC minimum requirements and ensures you're never navigating complex cases alone.",
-				},
-			],
-		},
-		{
-			_type: 'block',
-			style: 'h2',
-			children: [{ text: 'What to Bring to Supervision' }],
-		},
-		{
-			_type: 'block',
-			style: 'normal',
-			children: [
-				{
-					text: "Come prepared with specific questions, case material, and — most importantly — your honest reactions to the work. Supervision isn't about performing competence; it's about developing it. The best supervisory relationships are built on vulnerability and curiosity, not perfection.",
-				},
-			],
-		},
-		{
-			_type: 'block',
-			style: 'h2',
-			children: [{ text: 'Cultural Competence in Supervision' }],
-		},
-		{
-			_type: 'block',
-			style: 'normal',
-			children: [
-				{
-					text: "Every supervision session at SCTC incorporates cultural formulation. We don't treat culture as an add-on — it's woven into how we conceptualize cases, build treatment plans, and evaluate progress. You'll learn to ask the questions that most training sites overlook.",
-				},
-			],
-		},
-		{
-			_type: 'block',
-			style: 'h2',
-			children: [{ text: 'Growth Expectations' }],
-		},
-		{
-			_type: 'block',
-			style: 'normal',
-			children: [
-				{
-					text: "By the end of your training year, you should feel confident in case conceptualization, report writing, and independent clinical decision-making. More importantly, you'll have developed your own clinical voice — informed by evidence, shaped by cultural awareness, and grounded in the realities of the communities you serve.",
-				},
-			],
-		},
-	],
-};
+export const revalidate = 60;
+
+interface PageProps {
+	params: Promise<{ slug: string }>;
+}
 
 const categories: Record<string, string> = {
 	'forensic-evaluations': 'Forensic Evaluations',
@@ -99,48 +21,133 @@ const categories: Record<string, string> = {
 	'research-readings': 'Research & Readings',
 };
 
+// ===== TYPES =====
+interface Span {
+	_type: 'span';
+	text: string;
+	marks?: string[];
+}
+
+interface PortableBlock {
+	_type: 'block';
+	_key?: string;
+	style?: string;
+	children?: Span[];
+	markDefs?: Array<{ _key: string; _type: string; href?: string }>;
+}
+
+interface PortableImage {
+	_type: 'image';
+	_key?: string;
+	asset?: { _id?: string; url?: string };
+	alt?: string;
+}
+
+type PortableBlockItem = PortableBlock | PortableImage;
+
+interface ResourceDoc {
+	_id: string;
+	title: string;
+	slug: { current: string };
+	description?: string;
+	category?: string;
+	resourceType: 'pdf' | 'video' | 'link' | 'article';
+	publishDate?: string;
+	articleBody?: PortableBlockItem[];
+	file?: { asset?: { _id?: string; url?: string } };
+	videoUrl?: string;
+	externalUrl?: string;
+	thumbnail?: { asset?: { url?: string }; alt?: string };
+}
+
 // ===== SIMPLE PORTABLE TEXT RENDERER =====
-// TODO: Replace with @portabletext/react when wired to Sanity
-function renderBody(
-	blocks: Array<{
-		_type: string;
-		style?: string;
-		children?: Array<{ text: string }>;
-	}>,
-) {
+function renderSpan(span: Span, i: number) {
+	let node: React.ReactNode = span.text;
+	const marks = span.marks || [];
+
+	if (marks.includes('strong')) {
+		node = <strong key={`s-${i}`}>{node}</strong>;
+	}
+	if (marks.includes('em')) {
+		node = <em key={`e-${i}`}>{node}</em>;
+	}
+	if (marks.includes('code')) {
+		node = (
+			<code
+				key={`c-${i}`}
+				className="px-1.5 py-0.5 rounded bg-warm-cream text-rich-black text-[0.9em]"
+			>
+				{node}
+			</code>
+		);
+	}
+
+	return <React.Fragment key={i}>{node}</React.Fragment>;
+}
+
+function renderBody(blocks: PortableBlockItem[]) {
 	return blocks.map((block, i) => {
+		if (block._type === 'image') {
+			const url = block.asset?.url;
+			if (!url) return null;
+			return (
+				<figure key={block._key || i} className="my-8">
+					<Image
+						src={url}
+						alt={block.alt || ''}
+						width={1200}
+						height={800}
+						className="w-full h-auto rounded-xl"
+					/>
+					{block.alt && (
+						<figcaption className="text-warm-taupe text-sm text-center mt-3 italic">
+							{block.alt}
+						</figcaption>
+					)}
+				</figure>
+			);
+		}
+
 		if (block._type !== 'block' || !block.children) return null;
-		const text = block.children.map((c) => c.text).join('');
+
+		const children = block.children.map((span, j) => renderSpan(span, j));
+		const key = block._key || i;
 
 		switch (block.style) {
 			case 'h2':
 				return (
-					<h2 key={i} className="text-2xl font-bold text-rich-black mt-10 mb-4">
-						{text}
+					<h2
+						key={key}
+						className="text-2xl font-bold text-rich-black mt-10 mb-4"
+					>
+						{children}
 					</h2>
 				);
 			case 'h3':
 				return (
-					<h3 key={i} className="text-xl font-bold text-rich-black mt-8 mb-3">
-						{text}
+					<h3
+						key={key}
+						className="text-xl font-bold text-rich-black mt-8 mb-3"
+					>
+						{children}
 					</h3>
 				);
 			case 'blockquote':
 				return (
 					<blockquote
-						key={i}
+						key={key}
 						className="border-l-4 border-golden-yellow pl-6 my-6 italic text-charcoal-gray/90 text-lg"
 					>
-						{text}
+						{children}
 					</blockquote>
 				);
 			default:
 				return (
 					<p
-						key={i}
+						key={key}
 						className="text-charcoal-gray/90 leading-relaxed mb-4 text-[16.5px]"
 					>
-						{text}
+						{children}
 					</p>
 				);
 		}
@@ -148,23 +155,41 @@ function renderBody(
 }
 
 // ===== COMPONENT =====
-export default function ResourceArticlePage() {
-	// TODO: Use params.slug to fetch from Sanity
-	// const { slug } = useParams()
-	// const resource = await getResourceBySlug(slug)
-	const resource = placeholderArticle;
+export default async function ResourceArticlePage({ params }: PageProps) {
+	const { slug } = await params;
+	const resource = (await getResourceBySlug(slug)) as ResourceDoc | null;
 
-	const categoryLabel = categories[resource.category] || resource.category;
-	const formattedDate = new Date(resource.publishDate).toLocaleDateString(
-		'en-US',
-		{ month: 'long', day: 'numeric', year: 'numeric' },
-	);
+	if (!resource) {
+		notFound();
+	}
+
+	// Only article-type resources have a readable detail page.
+	// Other types (pdf/video/link) have their action buttons on the list page.
+	if (resource.resourceType !== 'article') {
+		notFound();
+	}
+
+	const categoryLabel = resource.category
+		? categories[resource.category] || resource.category
+		: '';
+	const formattedDate = resource.publishDate
+		? new Date(resource.publishDate).toLocaleDateString('en-US', {
+				month: 'long',
+				day: 'numeric',
+				year: 'numeric',
+			})
+		: null;
+
+	const articleBody = resource.articleBody ?? [];
 
 	// Estimate read time from article body
-	const wordCount = resource.articleBody
-		.flatMap((b) => b.children?.map((c) => c.text) || [])
+	const wordCount = articleBody
+		.flatMap((b) =>
+			b._type === 'block' ? (b.children?.map((c) => c.text) ?? []) : [],
+		)
 		.join(' ')
-		.split(/\s+/).length;
+		.split(/\s+/)
+		.filter(Boolean).length;
 	const readTime = Math.max(1, Math.ceil(wordCount / 200));
 
 	return (
@@ -186,26 +211,32 @@ export default function ResourceArticlePage() {
 							<BookOpen className="w-3 h-3" />
 							Article
 						</span>
-						<span className="inline-flex items-center gap-1.5 text-xs text-warm-cream/60">
-							<Tag className="w-3 h-3" />
-							{categoryLabel}
-						</span>
+						{categoryLabel && (
+							<span className="inline-flex items-center gap-1.5 text-xs text-warm-cream/60">
+								<Tag className="w-3 h-3" />
+								{categoryLabel}
+							</span>
+						)}
 					</div>
 
 					<h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-warm-cream mb-6 leading-tight">
 						{resource.title}
 					</h1>
 
-					<p className="text-warm-cream/80 text-lg mb-6">
-						{resource.description}
-					</p>
+					{resource.description && (
+						<p className="text-warm-cream/80 text-lg mb-6">
+							{resource.description}
+						</p>
+					)}
 
 					{/* Meta */}
 					<div className="flex items-center gap-6 text-warm-cream/60 text-sm">
-						<span className="flex items-center gap-1.5">
-							<Calendar className="w-4 h-4" />
-							{formattedDate}
-						</span>
+						{formattedDate && (
+							<span className="flex items-center gap-1.5">
+								<Calendar className="w-4 h-4" />
+								{formattedDate}
+							</span>
+						)}
 						<span className="flex items-center gap-1.5">
 							<Clock className="w-4 h-4" />
 							{readTime} min read
@@ -217,7 +248,13 @@ export default function ResourceArticlePage() {
 			{/* Article Body */}
 			<article className="max-w-3xl mx-auto px-6 py-12">
 				<div className="bg-white rounded-2xl shadow-sm border border-warm-taupe/10 p-8 md:p-12">
-					{renderBody(resource.articleBody)}
+					{articleBody.length > 0 ? (
+						renderBody(articleBody)
+					) : (
+						<p className="text-warm-taupe italic">
+							This article has no content yet.
+						</p>
+					)}
 				</div>
 
 				{/* Bottom navigation */}
