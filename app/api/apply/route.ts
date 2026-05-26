@@ -5,6 +5,29 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+] as const;
+
+const EXTENSION_BY_MIME: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+};
+
+function getExtension(file: File): string {
+  const fromMime = EXTENSION_BY_MIME[file.type];
+  if (fromMime) return fromMime;
+  const fromName = file.name.split('.').pop();
+  return fromName ? fromName.toLowerCase() : 'bin';
+}
+
+function getContentType(file: File): string {
+  return file.type || 'application/octet-stream';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -39,9 +62,9 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      if (file.type !== 'application/pdf') {
+      if (!ALLOWED_MIME_TYPES.includes(file.type as typeof ALLOWED_MIME_TYPES[number])) {
         return NextResponse.json(
-          { error: `File "${file.name}" must be a PDF.` },
+          { error: `File "${file.name}" must be a PDF or Word document.` },
           { status: 400 }
         );
       }
@@ -65,9 +88,11 @@ export async function POST(request: NextRequest) {
       toBase64(availabilityForm),
     ]);
 
+    const applicantSlug = applicantName.replace(/\s+/g, '-').toLowerCase();
+
     // ── Email to Clive (with attachments) ────────────────────
     await resend.emails.send({
-      from: 'SCTC Applications <applications@yourdomain.com>',
+      from: 'SCTC Applications <applications@clivedkennedyphd.com>',
       to: process.env.CLIVE_EMAIL!,
       subject: `New Internship Application — ${applicantName}`,
       html: `
@@ -118,24 +143,24 @@ export async function POST(request: NextRequest) {
       `,
       attachments: [
         {
-          filename: `cover-letter-${applicantName.replace(/\s+/g, '-').toLowerCase()}.pdf`,
+          filename: `cover-letter-${applicantSlug}.${getExtension(coverLetter)}`,
           content: coverLetterB64,
-          contentType: 'application/pdf',
+          contentType: getContentType(coverLetter),
         },
         {
-          filename: `resume-${applicantName.replace(/\s+/g, '-').toLowerCase()}.pdf`,
+          filename: `resume-${applicantSlug}.${getExtension(resume)}`,
           content: resumeB64,
-          contentType: 'application/pdf',
+          contentType: getContentType(resume),
         },
         {
-          filename: `application-${applicantName.replace(/\s+/g, '-').toLowerCase()}.pdf`,
+          filename: `application-${applicantSlug}.${getExtension(application)}`,
           content: applicationB64,
-          contentType: 'application/pdf',
+          contentType: getContentType(application),
         },
         {
-          filename: `availability-form-${applicantName.replace(/\s+/g, '-').toLowerCase()}.pdf`,
+          filename: `availability-form-${applicantSlug}.${getExtension(availabilityForm)}`,
           content: availabilityFormB64,
-          contentType: 'application/pdf',
+          contentType: getContentType(availabilityForm),
         },
       ],
       replyTo: applicantEmail,
@@ -143,7 +168,7 @@ export async function POST(request: NextRequest) {
 
     // ── Confirmation email to applicant ──────────────────────
     await resend.emails.send({
-      from: 'SCTC <no-reply@yourdomain.com>',
+      from: 'SCTC <no-reply@clivedkennedyphd.com>',
       to: applicantEmail,
       subject: 'Application Received — South Central Training Consortium',
       html: `
@@ -206,17 +231,24 @@ export async function POST(request: NextRequest) {
     });
 
     // ── Optional: Zapier webhook for Google Drive ────────────
-    if (process.env.ZAPIER_WEBHOOK_URL) {
-      await fetch(process.env.ZAPIER_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          applicantName,
-          applicantEmail,
-          submittedAt: new Date().toISOString(),
-          documents: ['Cover Letter', 'Resume/CV', 'Application', 'Availability Form'],
-        }),
-      });
+    // Fire-and-forget: a webhook failure must never sink a successful submission.
+    // Skip obvious placeholder values that would otherwise 404/400.
+    const zapierUrl = process.env.ZAPIER_WEBHOOK_URL;
+    if (zapierUrl && !zapierUrl.includes('xxxxx')) {
+      try {
+        await fetch(zapierUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            applicantName,
+            applicantEmail,
+            submittedAt: new Date().toISOString(),
+            documents: ['Cover Letter', 'Resume/CV', 'Application', 'Availability Form'],
+          }),
+        });
+      } catch (webhookError) {
+        console.error('Zapier webhook failed (non-fatal):', webhookError);
+      }
     }
 
     return NextResponse.json({ success: true });
